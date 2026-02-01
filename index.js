@@ -121,37 +121,84 @@ bot.onText(/^\/help(@\w+)?$/, (msg) => {
 bot.onText(/^\/stats(@\w+)?(.*)$/, async (msg, match) => {
     const chatId = msg.chat.id;
     const userId = msg.from.id.toString();
-    const args = match[2]?.trim();
-
-    console.log(`[USER:${userId}] /stats ${args || ""}`);
-
+    const args = match[2]?.trim() || "";
+  
+    console.log(`[USER:${userId}] /stats ${args}`);
+  
     let fromDate = null;
     let toDate = null;
-
+  
     const m = args.match(/from\s+(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})/i);
     if (m) {
-        fromDate = new Date(m[1]);
-        toDate = new Date(m[2]);
-        toDate.setHours(23, 59, 59, 999);
+      fromDate = new Date(m[1]);
+      toDate = new Date(m[2]);
+      toDate.setHours(23, 59, 59, 999);
     }
-
+  
     const matchStage = { userId };
     if (fromDate || toDate) {
-        matchStage.createdAt = {};
-        if (fromDate) matchStage.createdAt.$gte = fromDate;
-        if (toDate) matchStage.createdAt.$lte = toDate;
+      matchStage.createdAt = {};
+      if (fromDate) matchStage.createdAt.$gte = fromDate;
+      if (toDate) matchStage.createdAt.$lte = toDate;
     }
-
-    const total = await Expense.aggregate([
-        { $match: matchStage },
-        { $group: { _id: null, sum: { $sum: "$amount" } } }
+  
+    const expenses = await Expense.find(matchStage)
+      .sort({ createdAt: -1 })
+      .limit(25);
+  
+    const totalAgg = await Expense.aggregate([
+      { $match: matchStage },
+      { $group: { _id: null, sum: { $sum: "$amount" } } }
     ]);
-
-    return bot.sendMessage(
-        chatId,
-        `Total Expense: ₹${total[0]?.sum || 0}`
-    );
-});
+  
+    const byCategory = await Expense.aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: "$category",
+          total: { $sum: "$amount" }
+        }
+      },
+      { $sort: { total: -1 } }
+    ]);
+  
+    const total = totalAgg[0]?.sum || 0;
+  
+    let response = `📊 *Expense Stats*\n`;
+  
+    if (fromDate && toDate) {
+      response += `🗓 ${m[1]} → ${m[2]}\n\n`;
+    } else {
+      response += `🗓 All Time\n\n`;
+    }
+  
+    response += `💸 *Total Expense:* ₹${total}\n\n`;
+  
+    if (byCategory.length) {
+      response += `📂 *By Category*\n`;
+      byCategory.forEach(c => {
+        response += `• ${c._id || "general"}: ₹${c.total}\n`;
+      });
+      response += `\n`;
+    }
+  
+    if (!expenses.length) {
+      response += `No expenses found.`;
+      return bot.sendMessage(chatId, response, { parse_mode: "Markdown" });
+    }
+  
+    response += `🧾 *Recent Expenses*\n`;
+    expenses.forEach((e, i) => {
+      response += `${i + 1}. ₹${e.amount} | ${e.category || "general"} | ${e.wallet}\n`;
+    });
+  
+    if (expenses.length === 25) {
+      response += `\n_(Showing last 25 expenses)_`;
+    }
+  
+    return bot.sendMessage(chatId, response, { parse_mode: "Markdown" });
+  });
+  
 
 bot.on("message", async (msg) => {
     try {
