@@ -17,6 +17,8 @@ const parseWithAI = require("./parser");
 
 const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
 
+const processedMessages = new Set();
+
 bot.setMyCommands([
     { command: "start", description: "👋 Start the bot" },
     { command: "balance", description: "💰 Show current balance" },
@@ -154,6 +156,16 @@ bot.onText(/^\/stats(@\w+)?(.*)$/, async (msg, match) => {
 bot.on("message", async (msg) => {
     try {
         if (!msg.text || msg.chat.type !== "private") return;
+
+        const messageId = msg.message_id;
+
+        if (processedMessages.has(messageId)) {
+            return;
+        }
+
+        processedMessages.add(messageId);
+
+        setTimeout(() => processedMessages.delete(messageId), 5 * 60 * 1000);
 
         const userId = msg.from.id.toString();
         const text = msg.text.trim();
