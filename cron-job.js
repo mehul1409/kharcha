@@ -1,6 +1,4 @@
-const fetch = require('node-fetch').default;
-
-const HEALTH_URL = 'https://kharcha-l5ur.onrender.com/health'; 
+const HEALTH_URL = 'https://kharcha-l5ur.onrender.com/health';
 
 (async () => {
   try {
@@ -8,7 +6,6 @@ const HEALTH_URL = 'https://kharcha-l5ur.onrender.com/health';
 
     const response = await fetch(HEALTH_URL, {
       method: 'GET',
-      timeout: 10000,
     });
 
     if (!response.ok) {
@@ -22,6 +19,6 @@ const HEALTH_URL = 'https://kharcha-l5ur.onrender.com/health';
   } catch (error) {
     console.error('❌ Health check failed');
     console.error(error.message);
-    process.exit(1); 
+    process.exit(1);
   }
 })();
